@@ -1,0 +1,99 @@
+---
+title: "Rep. research assignment 2"
+author: "Raul"
+date: "17th december 2014"
+output: html_document
+---
+
+# *Severe Weather Events and their impact on Public Health and Economy*  
+  
+## Synopsis
+Severe weather events have had a huge impact on society in the US during the last few years as most of us can recall. Floods have been responsible for losses over 150.000 million USD of property damage. Tornados have caused a great number of death and injuries, with figures of nearly 100.000 fatal events in recent years.
+
+## Data Processing
+
+**Performed steps**:  
+* Get and load the data  
+* Remove some unused variables to optimise memory usage  
+* Remove original data to optimise memory usage  
+
+```{r Getting and loading the data,cache=TRUE}
+# check to see if the data set exists; if not, get it...
+if (!file.exists('repdata-data-StormData.csv.bz2')) {
+        
+# download the zip file and unzip
+        file.url<-'https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2'
+        download.file(file.url,destfile='repdata-data-StormData.csv.bz2', method="curl")
+}
+# load the data
+storm_data_bz <- bzfile("repdata-data-StormData.csv.bz2", open = "r")
+storm_data_raw <- read.table(storm_data_bz, header = TRUE, sep = ",")
+close(storm_data_bz)
+remove(storm_data_bz)
+
+# remove unnecessary columns
+good_columns <- c("EVTYPE",                  # Event type
+                  "FATALITIES", "INJURIES",  # Fatalities and Injuries
+                  "PROPDMG", "PROPDMGEXP",   # Property damange and exponential
+                  "CROPDMG", "CROPDMGEXP")   # Crop damage and exponential
+storm_data <- storm_data_raw[,good_columns]
+summary(storm_data)
+
+# remove original data to save space
+remove(storm_data_raw)
+```
+
+* Calculate the damage
+* Add property damage and crop damage to get the total damage
+* Calculate total fatalities and injuries
+
+```{r Damage Calculation}
+# calculate the total damage
+levels(storm_data$PROPDMGEXP) <- c(
+  "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", 
+  "1000000000", "1", "1", "1000", "1000000", "1000000")
+levels(storm_data$CROPDMGEXP) <- c(
+  "1", "1", "1", "1", "1000000000", "1000", 
+  "1000", "1000000", "1000000")
+storm_data$PROPDMG <- storm_data$PROPDMG * 
+  as.integer(as.character(storm_data$PROPDMGEXP))
+storm_data$CROPDMG <- storm_data$CROPDMG * 
+  as.integer(as.character(storm_data$CROPDMGEXP))
+storm_data$DAMAGE <- storm_data$PROPDMG + storm_data$CROPDMG
+
+# calculate total injuries and fatalities
+storm_data$HEALTH <- storm_data$INJURIES + storm_data$FATALITIES
+```
+
+## Results
+### Impact on Population health
+Across the United States, which types of events are most harmful with respect to population health?
+
+```{r Population health impact plot}
+total <- sort(tapply(storm_data$HEALTH, storm_data$EVTYPE, sum),decreasing = T)
+barplot(head(total,4),
+        main="Most harmful events",
+        xlab="Event type",
+        ylab="Total fatalities and injuries",
+        border="dark blue",
+        col=c("coral"))
+max(total)
+```
+
+As we can see in this plot, Tornados caused the highest number of damage (96.980 fatalities and injuries), significantly more than any other type of events such as excessive heat or wind which are the second most damaging events for fatalities and injuries respectively.
+
+### Impact on Economy
+Across the United States, which types of events have the greatest economic consequences?
+
+```{r Economy impact plot}
+total <- sort(tapply(storm_data$DAMAGE, storm_data$EVTYPE, sum), decreasing = T)
+barplot(head(total,3),
+        main="Most damaging events cost-wise",
+        xlab="Event type",
+        ylab="Total damage costs in USD",
+        border="dark blue",
+        col=c("coral"))
+max(total)
+```
+
+As shown in this second plot, Floodings caused the biggest damage: over 150.000 million USD which is higher than the damage due to the second and third most damaging events (hurricanes and tornados) together.
